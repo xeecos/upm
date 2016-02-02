@@ -54,10 +54,19 @@ namespace upm {
         public:
             MeLineFollower(uint8_t port);
 			~MeLineFollower ();
-            uint8_t readStatus();
+            uint8_t read();
 			
         private:
 			mraa_gpio_context pin1;
 			mraa_gpio_context pin2;
+    };
+	class MeLightSensor {
+        public:
+            MeLightSensor(uint8_t port);
+			~MeLightSensor();
+            uint16_t read();
+			
+        private:
+			mraa_aio_context pin;
     };
 }

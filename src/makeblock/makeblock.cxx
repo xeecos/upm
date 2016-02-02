@@ -121,6 +121,26 @@ MeLineFollower::~MeLineFollower () {
     mraa_gpio_close (pin1);
     mraa_gpio_close (pin2);
 }
-uint8_t MeLineFollower::readStatus(){
+uint8_t MeLineFollower::read(){
 	return (mraa_gpio_read(pin1)<<1)+mraa_gpio_read(pin2);
+}
+/***********************
+*******Light Sensor
+************************/
+MeLightSensor::MeLightSensor(uint8_t port) {
+    mraa_init();
+	MePort pt = MePort();
+	uint8_t s2 = pt.getPin(port,1);
+	pin = mraa_aio_init(s2-14);
+    if (pin == NULL) {
+        fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", s2);
+        exit (1);
+    }
+}
+
+MeLightSensor::~MeLightSensor () {
+    mraa_aio_close(pin);
+}
+uint16_t MeLightSensor::read(){
+	return mraa_aio_read(pin);
 }

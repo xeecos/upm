@@ -1,0 +1,5 @@
+set (libname "makeblock")
+set (libdescription "UPM module for Makeblock")
+set (module_src makeblock.cxx)
+set (module_h makeblock.h)
+upm_module_init()

@@ -1,4 +1,4 @@
-#include "mymodule.h"
+#include "makeblock.h"
  
 #include <iostream>
 #include <unistd.h>
@@ -6,163 +6,121 @@
 #include <functional>
 
 using namespace upm;
+#define NC 0
+#define A0 14
+#define A1 15
+#define A2 16
+#define A3 17
+#define A4 18
+#define A5 19
+#define A6 20
+#define A7 21
 
-MyModule::MyModule() {
+MePort::MePort(){
+	 uint8_t list[30] = {NC, NC , 11, 10 ,  9, 12 , 13,  8 , NC,  3 , NC, NC , NC,  2 , A2, A3 , A0, A1 ,  5,  4 ,  6,  7 , NC, NC , NC, NC , NC, NC , NC, NC};
+	 ports = (uint8_t*)malloc(30);
+	 for(int i=0;i<30;i++)ports[i] = list[i];
+}
+uint8_t MePort::getPin(uint8_t port,uint8_t slot){
+	return ports[port*2+slot];
+}
+MeUltrasonicSensor::MeUltrasonicSensor(uint8_t port) {
     mraa_init();
-	buffer = (uint8_t*)malloc(12);
-}
- 
-MyModule::~MyModule () {
-	free(buffer);
-    mraa_gpio_close (gpio);
-}
-void MyModule::open(uint8_t pin) {
-    // setup pin
-    gpio = mraa_gpio_init(pin);
-    if (gpio == NULL) {
-        fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", 13);
+	MePort pt = MePort();
+	uint8_t s1 = pt.getPin(port,0);
+	uint8_t s2 = pt.getPin(port,1);
+	pin1 = mraa_gpio_init(s1);
+	pin2 = mraa_gpio_init(s2);
+    if (pin2 == NULL) {
+        fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", s2);
         exit (1);
     }
-	mraa_gpio_use_mmaped(gpio, 1);
-	setCount(16);
-	show();
+    m_doWork = 1;
+	mraa_gpio_use_mmaped(pin2, 1);
+    mraa_gpio_isr(pin2, MRAA_GPIO_EDGE_BOTH,&signalISR, this);
 }
-void MyModule::lowCode()
-{
-	//---- T0H ----
-	mraa_gpio_write(gpio , 1);
-	//---- T0L ----
-	mraa_gpio_write(gpio , 0);
-	mraa_gpio_write(gpio , 0);
-	mraa_gpio_write(gpio , 0);
-	mraa_gpio_write(gpio , 0);
+
+MeUltrasonicSensor::~MeUltrasonicSensor () {
+    mraa_gpio_close (pin1);
+    mraa_gpio_close (pin2);
 }
-void MyModule::highCode()
-{
-	//---- T1H ----
-	mraa_gpio_write(gpio , 1);
-	mraa_gpio_write(gpio , 1);
-	mraa_gpio_write(gpio , 1);
-	//---- T1L ----
-	mraa_gpio_write(gpio , 0);
-	mraa_gpio_write(gpio , 0);
+uint32_t MeUltrasonicSensor::measure(){
+    mraa_gpio_dir(pin2, MRAA_GPIO_OUT);
 	
-}
-void MyModule::reset()
-{
-	int i=0;
-	for(i=0;i<100;i++) {
-		mraa_gpio_write(gpio , 0);
-		mraa_gpio_write(gpio , 0);
-		mraa_gpio_write(gpio , 0);
-		mraa_gpio_write(gpio , 0);
-		mraa_gpio_write(gpio , 0);
-	}
-}
-
-void MyModule::setColorAt(uint8_t index,uint8_t r,uint8_t g,uint8_t b){
-	if(index<maxCount){
-		buffer[index*3] = r;
-		buffer[index*3+1] = g;
-		buffer[index*3+2] = b;
-	}
-}
-void MyModule::show(){
-	uint8_t i = 0;
-	//reset();
-	for(i=0;i<maxCount;i++){
-		setColor(buffer[i*3],buffer[i*3+1],buffer[i*3+2]);
-	}
-}
-void MyModule::setCount(uint8_t len){
-	maxCount = len;
-	free(buffer);
-	buffer = (uint8_t*)malloc(len*3);
-	int i = 0;
-	for(i=0;i<maxCount;i++){
-		setColorAt(i,0,0,0);
-	}
-}
-void MyModule::sendPixels()
-{
-    uint8_t mask;
-    uint8_t subpix;
-    uint32_t cyclesStart;
-
-    // trigger emediately
-	int count = 0;
-	int i = 0;
-	uint8_t cyclesBit;
-	uint8_t total = maxCount*3;
-    while (count < total)
-    {
-		subpix = buffer[count];
-		count++;
-        for(i=0;i<8;i++){
-            cyclesBit = (subpix & (0x80>>i));
-			if(cyclesBit==0){
-				mraa_gpio_write(gpio , 1);
-				mraa_gpio_write(gpio , 0);
-				mraa_gpio_write(gpio , 0);
-				mraa_gpio_write(gpio , 0);
-			}else{
-				mraa_gpio_write(gpio , 1);
-				mraa_gpio_write(gpio , 1);
-				mraa_gpio_write(gpio , 1);
-				mraa_gpio_write(gpio , 0);
-			}
-        }
+    mraa_gpio_write(pin2, LOW);
+    usleep(2);
+    mraa_gpio_write(pin2, HIGH);
+    usleep(5);
+    mraa_gpio_write(pin2, LOW);
+	
+    m_doWork = 0;
+    m_InterruptCounter = 0;
+	
+    int timer = 0;
+    mraa_gpio_dir(pin2, MRAA_GPIO_IN);
+	
+    while (!m_doWork) {
+		if(timer++>100){
+			m_doWork = 1;
+			return 0;
+		}
+        usleep (5);
     }
-    // while accurate, this isn't needed due to the delays at the 
-    // top of Show() to enforce between update timing
-    // while ((_getCycleCount() - cyclesStart) < CYCLES_400);
+    return m_FallingTimeStamp - m_RisingTimeStamp;
 }
-void MyModule::setColor(uint8_t r,uint8_t g,uint8_t b)
-{
-	int i=0;
-	for(i=0;i<8;i++){
-		if( (g & (0x80>>i)) ==0) {
-			mraa_gpio_write(gpio , 1);
-			mraa_gpio_write(gpio , 0);
-			mraa_gpio_write(gpio , 0);
-			mraa_gpio_write(gpio , 0);
-			mraa_gpio_write(gpio , 0);
-		}else {		
-			mraa_gpio_write(gpio , 1);
-			mraa_gpio_write(gpio , 1);
-			mraa_gpio_write(gpio , 1);
-			mraa_gpio_write(gpio , 0);
-			mraa_gpio_write(gpio , 0);
-		}
-	}
-	for(i=0;i<8;i++){
-		if( (r & (0x80>>i)) ==0) {
-			mraa_gpio_write(gpio , 1);
-			mraa_gpio_write(gpio , 0);
-			mraa_gpio_write(gpio , 0);
-			mraa_gpio_write(gpio , 0);
-			mraa_gpio_write(gpio , 0);
-		}else {		
-			mraa_gpio_write(gpio , 1);
-			mraa_gpio_write(gpio , 1);
-			mraa_gpio_write(gpio , 1);
-			mraa_gpio_write(gpio , 0);
-			mraa_gpio_write(gpio , 0);
-		}
-	}
-	for(i=0;i<8;i++){
-		if( (b & (0x80>>i)) ==0){
-			mraa_gpio_write(gpio , 1);
-			mraa_gpio_write(gpio , 0);
-			mraa_gpio_write(gpio , 0);
-			mraa_gpio_write(gpio , 0);
-			mraa_gpio_write(gpio , 0);
-		}else {		
-			mraa_gpio_write(gpio , 1);
-			mraa_gpio_write(gpio , 1);
-			mraa_gpio_write(gpio , 1);
-			mraa_gpio_write(gpio , 0);
-			mraa_gpio_write(gpio , 0);
-		}
-	}
+float MeUltrasonicSensor::distanceCm(){
+	uint32_t dist = measure();
+	return dist / 29.1;
+}
+float MeUltrasonicSensor::distanceInch(){
+	uint32_t dist = measure();
+	return dist / 74.1;
+}
+bool MeUltrasonicSensor::isWorking(){
+	return m_doWork==0;
+}
+void MeUltrasonicSensor::signalISR(void *ctx) {
+    upm::MeUltrasonicSensor *This = (upm::MeUltrasonicSensor *)ctx;
+    struct timeval timer;
+    gettimeofday(&timer, NULL);
+
+    This->m_InterruptCounter++;
+    if (!(This->m_InterruptCounter % 2)) {
+        This->m_FallingTimeStamp  = 1000000 * timer.tv_sec + timer.tv_usec;
+        This->m_doWork = 1;
+    } else {
+        This->m_RisingTimeStamp = 1000000 * timer.tv_sec + timer.tv_usec;
+    }
+}
+/***********************
+*******Line Follower
+************************/
+
+MeLineFollower::MeLineFollower(uint8_t port) {
+    mraa_init();
+	MePort pt = MePort();
+	uint8_t s1 = pt.getPin(port,0);
+	uint8_t s2 = pt.getPin(port,1);
+	pin1 = mraa_gpio_init(s1);
+    if (pin1 == NULL) {
+        fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", s1);
+        exit (1);
+    }
+	pin2 = mraa_gpio_init(s2);
+    if (pin2 == NULL) {
+        fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", s2);
+        exit (1);
+    }
+	mraa_gpio_use_mmaped(pin1, 1);
+	mraa_gpio_use_mmaped(pin2, 1);
+	mraa_gpio_dir(pin1, MRAA_GPIO_IN);
+	mraa_gpio_dir(pin2, MRAA_GPIO_IN);
+}
+
+MeLineFollower::~MeLineFollower () {
+    mraa_gpio_close (pin1);
+    mraa_gpio_close (pin2);
+}
+uint8_t MeLineFollower::readStatus(){
+	return 0;
 }

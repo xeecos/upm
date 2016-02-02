@@ -1,11 +1,11 @@
-%module jsupm_mymodule
+%module jsupm_makeblock
  
 %include "../upm.i"
  
  
-%include "mymodule.h"
+%include "makeblock.h"
  
 %{
  
-    #include "mymodule.h"
+    #include "makeblock.h"
 %}

@@ -1,4 +1,4 @@
-%module javaupm_mymodule
+%module javaupm_makeblock
  
 %include "../upm.i"
  
@@ -7,18 +7,18 @@
  
 %{
  
-    #include "mymodule.h"
+    #include "makeblock.h"
 %}
  
  
-%include "mymodule.h"
+%include "makeblock.h"
  
  
 %pragma(java) jniclasscode=%{
  
     static {
         try {
-            System.loadLibrary("javaupm_mymodule");
+            System.loadLibrary("javaupm_makeblock");
         } catch (UnsatisfiedLinkError e) {
             System.err.println("Native code library failed to load. \n" 
 + e);

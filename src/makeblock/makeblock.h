@@ -3,29 +3,61 @@
 #include <stdio.h>
 #include <mraa/aio.h>
 #include <mraa/gpio.h>
+#include <sys/time.h>
 
 #define HIGH                   1
 #define LOW                    0
+#define PORT_1 1
+#define PORT_2 2
+#define PORT_3 3
+#define PORT_4 4
+#define PORT_5 5
+#define PORT_6 6
+#define PORT_7 7
+#define PORT_8 8
+#define PORT_9 9
+#define PORT_10 10
+
+
+
 
 namespace upm {
- 
-    class MyModule {
+	class MePort{
+		public:
+			MePort();
+			uint8_t getPin(uint8_t port,uint8_t slot);
+		private:
+			uint8_t *ports;
+	};
+    class MeUltrasonicSensor {
         public:
- 
-            MyModule();
-			~MyModule ();
-            void open(uint8_t pin);
-			void lowCode();
-			void highCode();
-			void reset();
-			void setColorAt(uint8_t index,uint8_t r,uint8_t g,uint8_t b);
-			void show();
-			void setCount(uint8_t len);
-			void sendPixels();
+            MeUltrasonicSensor(uint8_t port);
+			~MeUltrasonicSensor ();
+            float distanceCm();
+            float distanceInch();
+			bool isWorking();
         private:
-			void setColor(uint8_t r,uint8_t g,uint8_t b);
-			uint8_t *buffer;
-			uint8_t maxCount;
-			mraa_gpio_context gpio;
+			uint32_t measure();
+			mraa_gpio_context pin1;
+			mraa_gpio_context pin2;
+			uint8_t m_doWork;
+			uint8_t m_InterruptCounter;
+			long    m_RisingTimeStamp;
+			long    m_FallingTimeStamp;
+			/**
+			 * ISR for the pulse signal
+			 */
+			static void signalISR(void *ctx);
+
+    };
+	class MeLineFollower {
+        public:
+            MeLineFollower(uint8_t port);
+			~MeLineFollower ();
+            uint8_t readStatus();
+			
+        private:
+			mraa_gpio_context pin1;
+			mraa_gpio_context pin2;
     };
 }

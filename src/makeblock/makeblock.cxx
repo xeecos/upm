@@ -122,5 +122,5 @@ MeLineFollower::~MeLineFollower () {
     mraa_gpio_close (pin2);
 }
 uint8_t MeLineFollower::readStatus(){
-	return 0;
+	return (mraa_gpio_read(pin1)<<1)+mraa_gpio_read(pin2);
 }

@@ -144,3 +144,148 @@ MeLightSensor::~MeLightSensor () {
 uint16_t MeLightSensor::read(){
 	return mraa_aio_read(pin);
 }
+/***********************
+*******MeHumiture
+************************/
+MeHumiture::MeHumiture(uint8_t port){
+	 mraa_init();
+	MePort pt = MePort();
+	//uint8_t s1 = pt.getPin(port,0);
+	uint8_t s2 = pt.getPin(port,1);
+	//pin1 = mraa_gpio_init(s1);
+    //if (pin1 == NULL) {
+     //   fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", s1);
+    //    exit (1);
+    //}
+	pin2 = mraa_gpio_init(s2);
+    if (pin2 == NULL) {
+        fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", s2);
+        exit (1);
+    }
+	//mraa_gpio_use_mmaped(pin1, 1);
+	mraa_gpio_use_mmaped(pin2, 1);
+	//mraa_gpio_dir(pin1, MRAA_GPIO_IN);
+	//mraa_gpio_dir(pin2, MRAA_GPIO_IN);
+}
+MeHumiture::~MeHumiture(){
+    //mraa_gpio_close (pin1);
+    mraa_gpio_close (pin2);
+}
+void MeHumiture::update(){
+	uint8_t data[5] = {0};
+	uint16_t i;
+	mraa_gpio_dir(pin2, MRAA_GPIO_OUT);
+	for (i=0;i<10000;i++){
+		mraa_gpio_write(pin2, LOW);
+	}
+	for (i=0;i<10;i++){
+		mraa_gpio_write(pin2, HIGH);
+	}
+	for (i=0;i<10;i++){
+		mraa_gpio_write(pin2, LOW);
+	}
+	mraa_gpio_dir(pin2, MRAA_GPIO_IN);
+	uint16_t time = 0;
+	while(mraa_gpio_read(pin2) != HIGH){
+		time++;
+		if( time > 2000)
+		{
+		  humidity = 0;
+		  temperature = 0;
+		  break;
+		}
+		usleep(1);
+	}
+	time = 0;
+	while(mraa_gpio_read(pin2) != LOW){
+		time++;
+		if(  time  > 2000)
+		{
+			break;
+		}
+		usleep(1);
+	}
+
+	for(int16_t i=0;i<40;i++){
+		time = 0;
+		while(mraa_gpio_read(pin2) == LOW)
+		{
+			time++;
+			if( time  > 2000)
+			{
+				break;
+			}
+			usleep(1);
+		}
+		time = 0;
+		while(mraa_gpio_read(pin2) == HIGH)
+		{
+			time++;
+			if( time  > 2000 )
+			{
+				break;
+			}
+			usleep(1);
+		}
+		if ( time > 4 )
+		{
+		  data[i/8] <<= 1;
+		  data[i/8] |= 0x01;
+		}
+		else
+		{
+		  data[i/8] <<= 1;
+		}
+	}
+	if( (data[0] + data[2]) == data[4] )
+	{
+		humidity = data[0];
+		temperature = data[2];
+	}
+}
+void MeHumiture::signalISR(void *ctx) {
+    upm::MeHumiture *This = (upm::MeHumiture *)ctx;
+    struct timeval timer;
+    gettimeofday(&timer, NULL);
+
+    This->m_InterruptCounter++;
+    if (!(This->m_InterruptCounter % 2)) {
+        This->m_FallingTimeStamp  = 1000000 * timer.tv_sec + timer.tv_usec;
+        This->m_doWork = 1;
+    } else {
+        This->m_RisingTimeStamp = 1000000 * timer.tv_sec + timer.tv_usec;
+    }
+}
+uint8_t MeHumiture::getHumidity(){
+	return humidity;
+}
+uint8_t MeHumiture::getTemperature(){
+	return temperature;
+}
+double MeHumiture::getKelvin(void)
+{
+  return temperature + 273.15;
+}
+double MeHumiture::getFahrenheit(){
+	return 1.8 * temperature + 32;
+}
+double MeHumiture::getDewPoint(void)
+{
+  double a0= 373.15/(273.15 + temperature);
+  double sum = -7.90298 * (a0-1);
+  sum += 5.02808 * log10(a0);
+  sum += -1.3816e-7 * (pow(10, (11.344*(1-1/a0)))-1) ;
+  sum += 8.1328e-3 * (pow(10,(-3.49149*(a0-1)))-1) ;
+  sum += log10(1013.246);
+  double vp = pow(10, sum-3) * humidity;
+  double t = log(vp/0.61078);   // temp var
+  return (241.88 * t) / (17.558-t);
+}
+double MeHumiture::getPointFast()
+{
+  double a = 17.271;
+  double b = 237.7;
+  double temp = (a * temperature) / (b + temperature) + log(humidity/100);
+  //double Td = (b * temp) / (a - temp);
+  return ((b * temp) / (a - temp));
+}

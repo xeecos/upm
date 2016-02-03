@@ -32,24 +32,22 @@ MeDCMotor::MeDCMotor(uint8_t port){
 	MePort pt = MePort();
 	uint8_t s1 = pt.getPin(port,0);
 	uint8_t s2 = pt.getPin(port,1);
-	pin1 = mraa_gpio_init(s1);
+	pin1 = mraa_pwm_init(s1);
     if (pin1 == NULL) {
         fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", s1);
         exit (1);
     }
-	pin2 = mraa_pwm_init(s2);
+	pin2 = mraa_gpio_init(s2);
     if (pin2 == NULL) {
         fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", s2);
         exit (1);
     }
-	mraa_gpio_use_mmaped(pin1, 1);
-	mraa_gpio_dir(pin1, MRAA_GPIO_OUT);
-	mraa_pwm_period_us(pin2,200);
-	mraa_pwm_enable(pin2,1);
+	mraa_gpio_use_mmaped(pin2, 1);
+	mraa_gpio_dir(pin2, MRAA_GPIO_OUT);
 }
 MeDCMotor::~MeDCMotor (){
-    mraa_gpio_close (pin1);
-    mraa_pwm_close (pin2);
+    mraa_pwm_close(pin1);
+    mraa_gpio_close(pin2);
 }
 void MeDCMotor::run(int16_t pwm){
 	if(pwm>255){
@@ -63,23 +61,23 @@ void MeDCMotor::run(int16_t pwm){
 		pwm = -pwm;
 		dir = 1;
 	}
-	mraa_pwm_write(pin2,pwm);
-	mraa_gpio_write(pin1,dir);
+	mraa_pwm_write(pin1,pwm/255.0);
+	mraa_gpio_write(pin2,dir);
 }
 /********************
 *******Me Servo Motor
 *********************/
-MeServoMotor::MeServoMotor(uint8_t port,uint8_t slot){
+MeServoMotor::MeServoMotor(uint8_t port,uint8_t slot):Servo(0){
 	MePort pt = MePort();
-	uint8_t s = pt.getPin(port,slot);
-	servo = Servo(s);
+	int s = pt.getPin(port,slot);
+	init(s,600,2500,0);
 	
 }
 MeServoMotor::~MeServoMotor (){
-	servo.haltPwm();
+	haltPwm();
 }
 void MeServoMotor::run(uint8_t angle){
-	servo.setAngle(angle);
+	setAngle(angle);
 }
 	
 /********************
@@ -111,14 +109,24 @@ MeStepperMotor::MeStepperMotor(uint8_t port){
 	mraa_gpio_use_mmaped(pin2, 1);
 	mraa_gpio_dir(pin1, MRAA_GPIO_OUT);
 	mraa_gpio_dir(pin2, MRAA_GPIO_OUT);
+	
+	_currentPos = 0;
+	_targetPos = 0;
+	_acceleration = 0;
+	gettimeofday(&timer, NULL);
+	double currentTime = 1000000 * timer.tv_sec + timer.tv_usec;
+	_lastStepTime = currentTime;
+	_speed = 0;
+	_dir = DIRECTION_CW;
 }
-~MeStepperMotor::MeStepperMotor (){
+MeStepperMotor::~MeStepperMotor (){
     mraa_gpio_close (pin1);
     mraa_gpio_close (pin2);
 }
-void MeStepperMotor::step(uint8_t dir){
-	mraa_gpio_write(pin1, dir==DIRECTION_CW?LOW:HIGH);
+void MeStepperMotor::step(){
+	mraa_gpio_write(pin1, _dir==DIRECTION_CW?LOW:HIGH);
 	mraa_gpio_write(pin2,HIGH);
+	usleep(1);
 	mraa_gpio_write(pin2,LOW);
 }
 bool MeStepperMotor::run(){
@@ -133,6 +141,10 @@ bool MeStepperMotor::run(){
 		return true;
 	}
 }
+unsigned long MeStepperMotor::ctime(){
+	gettimeofday(&timer, NULL);
+	return 1000000 * timer.tv_sec + timer.tv_usec;
+}
 bool MeStepperMotor::runSpeed()
 {
 	// Dont do anything unless we actually have a step interval
@@ -140,8 +152,10 @@ bool MeStepperMotor::runSpeed()
 	{
 		return false;
 	}
-
-	if (micros() - _lastStepTime > _stepInterval)
+	
+    gettimeofday(&timer, NULL);
+	unsigned long currentTime = 1000000 * timer.tv_sec + timer.tv_usec;
+	if (currentTime - _lastStepTime > _stepInterval)
 	{
 		if (_dir == DIRECTION_CW)
 		{
@@ -154,7 +168,7 @@ bool MeStepperMotor::runSpeed()
 			_currentPos -= 1;
 		}
 		step();
-		_lastStepTime = micros();
+		_lastStepTime = currentTime;
 		return true;
 	}
 	else
@@ -162,12 +176,16 @@ bool MeStepperMotor::runSpeed()
 		return false;
 	}
 }
-
+long MeStepperMotor::currentPosition(){
+	return _currentPos;
+}
 long MeStepperMotor::distanceToGo()
 {
 	return _targetPos - _currentPos;
 }
-
+unsigned long MeStepperMotor::stepInterval(){
+	return _stepInterval;
+}
 void MeStepperMotor::computeNewSpeed()
 {
 	long distanceTo = distanceToGo();
@@ -235,7 +253,7 @@ void MeStepperMotor::computeNewSpeed()
 	{
 		// Subsequent step. Works for accel (n is +_ve) and decel (n is -ve).
 		_cn = _cn - ((2.0 * _cn) / ((4.0 * _n) + 1)); // Equation 13
-		_cn = max(_cn, _cmin);
+		_cn = _cn>_cmin?_cn:_cmin;
 	}
 	_n++;
 	_stepInterval = _cn;
@@ -263,7 +281,7 @@ void MeStepperMotor::setSpeed(uint16_t speed){
 	if (speed == _speed){
 		return;
 	}
-	speed = constrain(speed, -_maxSpeed, _maxSpeed);
+	speed = speed<-_maxSpeed?-_maxSpeed:(speed>_maxSpeed?_maxSpeed:speed);
 	if (speed == 0.0){
 		_stepInterval = 0;
 	}else{
@@ -288,12 +306,12 @@ void MeStepperMotor::setAcceleration(float acceleration){
 	}
 }
 void MeStepperMotor::move(long distance){
-	 moveTo(_currentPos + relative);
+	 moveTo(_currentPos + distance);
 }
 void MeStepperMotor::moveTo(long distance){
-	if (_targetPos != absolute)
+	if (_targetPos != distance)
 	{
-		_targetPos = absolute;
+		_targetPos = distance;
 		computeNewSpeed();
 	}
 }
@@ -331,7 +349,7 @@ Me7SegmentDisplay::Me7SegmentDisplay(uint8_t port){
 	set(BRIGHTNESS_2, ADDR_AUTO, STARTADDR);
 	clear();
 }
-~Me7SegmentDisplay::Me7SegmentDisplay (){
+Me7SegmentDisplay::~Me7SegmentDisplay (){
     mraa_gpio_close (pin1);
     mraa_gpio_close (pin2);
 }
@@ -406,6 +424,29 @@ void Me7SegmentDisplay::write(uint8_t SegData[])
 	start();
 	writeByte(Cmd_DispCtrl);
 	stop();
+}
+void Me7SegmentDisplay::display(uint8_t DispData[])
+{
+  uint8_t SegData[4];
+  uint8_t i;
+  for (i = 0; i < 4; i++)
+  {
+    SegData[i] = DispData[i];
+  }
+  coding(SegData);
+  write(SegData);
+}
+void Me7SegmentDisplay::coding(uint8_t DispData[])
+{
+  for (uint8_t i = 0; i < 4; i++)
+  {
+    if (DispData[i] >= sizeof(tubeTable) / sizeof(*tubeTable))
+    {
+      DispData[i] = 32; // Change to ' '(space)
+    }
+    //DispData[i] = TubeTab[DispData[i]];
+    DispData[i] = tubeTable[DispData[i]];//+ PointData;
+  }
 }
 void Me7SegmentDisplay::display(float value){
 	uint8_t i=0;
@@ -681,8 +722,8 @@ MeTouchSensor::~MeTouchSensor (){
 uint8_t MeTouchSensor::read(){
 	return mraa_gpio_read(pin2);
 }
-uint8_t MeTouchSensor::setMode(uint8_t mode){
-	return mraa_gpio_write(pin1,mode);
+void MeTouchSensor::setMode(uint8_t mode){
+	mraa_gpio_write(pin1,mode);
 }
 /***********************
 *******MePIRMotionSensor
@@ -693,7 +734,7 @@ MePIRMotionSensor::MePIRMotionSensor(uint8_t port){
 	uint8_t s = pt.getPin(port,1);
 	pin = mraa_gpio_init(s);
     if (pin == NULL) {
-        fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", s1);
+        fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", s);
         exit (1);
     }
 	mraa_gpio_use_mmaped(pin, 1);
@@ -738,10 +779,10 @@ MeSoundSensor::MeSoundSensor(uint8_t port){
         exit (1);
     }
 }
-MeSoundSensor~MeSoundSensor(){
+MeSoundSensor::~MeSoundSensor(){
 	mraa_aio_close(pin);
 }
-uint16_t MeSoundSensorread(){
+uint16_t MeSoundSensor::read(){
 	return mraa_aio_read(pin);
 }
 /***********************
@@ -808,7 +849,7 @@ MeFlameSensor::MeFlameSensor(uint8_t port){
         exit (1);
     }
 	mraa_gpio_use_mmaped(pin2, 1);
-	mraa_gpio_dir(pin, MRAA_GPIO_IN);
+	mraa_gpio_dir(pin2, MRAA_GPIO_IN);
 }
 MeFlameSensor::~MeFlameSensor(){
 	mraa_aio_close(pin1);
@@ -840,7 +881,7 @@ MeGasSensor::MeGasSensor(uint8_t port){
         exit (1);
     }
 	mraa_gpio_use_mmaped(pin2, 1);
-	mraa_gpio_dir(pin, MRAA_GPIO_IN);
+	mraa_gpio_dir(pin2, MRAA_GPIO_IN);
 }
 MeGasSensor::~MeGasSensor(){
 	mraa_aio_close(pin1);

@@ -19,7 +19,24 @@
 #define PORT_9 9
 #define PORT_10 10
 
-
+/******************definitions for TM1637**********************/
+#define   ADDR_AUTO 0x40   //Automatic address increment mode
+#define   ADDR_FIXED 0x44   //Fixed address mode
+#define   STARTADDR 0xc0  //start address of display register
+#define   SEGDIS_ON 0x88   //diplay on
+#define   SEGDIS_OFF 0x80   //diplay off
+			/**** definitions for the clock point of the digit tube *******/
+#define POINT_ON 1
+#define POINT_OFF 0
+			/**************definitions for brightness***********************/
+#define BRIGHTNESS_0 0
+#define BRIGHTNESS_1 1
+#define BRIGHTNESS_2 2
+#define BRIGHTNESS_3 3
+#define BRIGHTNESS_4 4
+#define BRIGHTNESS_5 5
+#define BRIGHTNESS_6 6
+#define BRIGHTNESS_7 7
 
 
 namespace upm {
@@ -38,25 +55,23 @@ namespace upm {
             void run(int16_t pwm);
 			
         private:
-			mraa_gpio_context pin1;
-			mraa_pwm_context  pin2;
+			mraa_pwm_context pin1;
+			mraa_gpio_context  pin2;
     };
 	
-	class MeServoMotor {
+	class MeServoMotor:public Servo {
         public:
             MeServoMotor(uint8_t port,uint8_t slot);
 			~MeServoMotor ();
             void run(uint8_t angle);
 			
-        private:
-			Servo servo;
     };
 	
 	class MeStepperMotor {
         public:
             MeStepperMotor(uint8_t port);
 			~MeStepperMotor ();
-            void step(uint8_t dir);
+            void step();
 			bool run();
 			bool runSpeed();
 			void setSpeed(uint16_t speed);
@@ -64,10 +79,14 @@ namespace upm {
 			void setAcceleration(float acceleration);
 			void move(long distance);
 			void moveTo(long distance);
-			
+			long distanceToGo();
+			long currentPosition();
+			unsigned long stepInterval();
+			unsigned long ctime();
         private:
 			mraa_gpio_context pin1;
 			mraa_gpio_context pin2;
+			struct timeval timer;
 			static uint8_t _dir_data;
 			static uint8_t _step_data;
 			uint8_t _dir;          
@@ -86,6 +105,7 @@ namespace upm {
 			float _cn;
 			/// Min step size in microseconds based on maxSpeed
 			float _cmin; // at max speed
+			void computeNewSpeed();
     };
 	class Me7SegmentDisplay{
 		public:
@@ -94,33 +114,20 @@ namespace upm {
 			void display(float value);
 			void clear();
         private:
+			void display(uint8_t DispData[]);
+			void coding(uint8_t DispData[]);
 			mraa_gpio_context pin1;
 			mraa_gpio_context pin2;
+			uint8_t Cmd_SetData;
+			uint8_t Cmd_SetAddr;
+			uint8_t Cmd_DispCtrl;
 			void set(uint8_t brightness, uint8_t SetData, uint8_t SetAddr);
 			void writeByte(uint8_t wr_data);
 			void start(void);
 			void stop(void);
 			void write(uint8_t SegData[]);
 			int16_t checkNum(float v,int16_t b);
-			/******************definitions for TM1637**********************/
-			const uint8_t   ADDR_AUTO = 0x40;   //Automatic address increment mode
-			const uint8_t   ADDR_FIXED = 0x44;   //Fixed address mode
-			const uint8_t   STARTADDR = 0xc0;   //start address of display register
-			const uint8_t   SEGDIS_ON = 0x88;   //diplay on
-			const uint8_t   SEGDIS_OFF = 0x80;   //diplay off
-			/**** definitions for the clock point of the digit tube *******/
-			const uint8_t POINT_ON = 1;
-			const uint8_t POINT_OFF = 0;
-			/**************definitions for brightness***********************/
-			const uint8_t BRIGHTNESS_0 = 0;
-			const uint8_t BRIGHTNESS_1 = 1;
-			const uint8_t BRIGHTNESS_2 = 2;
-			const uint8_t BRIGHTNESS_3 = 3;
-			const uint8_t BRIGHTNESS_4 = 4;
-			const uint8_t BRIGHTNESS_5 = 5;
-			const uint8_t BRIGHTNESS_6 = 6;
-			const uint8_t BRIGHTNESS_7 = 7;
-	}		
+	};
 	class MeShutter{
 		public:
 			MeShutter(uint8_t port);
@@ -133,7 +140,7 @@ namespace upm {
         private:
 			mraa_gpio_context pin1;
 			mraa_gpio_context pin2;
-	}
+	};
     class MeUltrasonicSensor {
         public:
             MeUltrasonicSensor(uint8_t port);
@@ -239,7 +246,7 @@ namespace upm {
 			
         private:
 			mraa_aio_context pin1;
-			mraa_aio_context pin2;
+			mraa_gpio_context pin2;
     };
 	class MeGasSensor {
         public:
@@ -249,7 +256,7 @@ namespace upm {
 			
         private:
 			mraa_aio_context pin1;
-			mraa_aio_context pin2;
+			mraa_gpio_context pin2;
     };
 	class MeHumiture {
 		public:
@@ -265,6 +272,11 @@ namespace upm {
 		private:
 			mraa_gpio_context pin1;
 			mraa_gpio_context pin2;
+			static void signalISR(void *ctx);
+			uint8_t m_doWork;
+			uint8_t m_InterruptCounter;
+			long    m_RisingTimeStamp;
+			long    m_FallingTimeStamp;
 			uint8_t humidity;
 			uint8_t temperature;
 	};

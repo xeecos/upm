@@ -766,6 +766,27 @@ uint16_t MeLightSensor::read(){
 	return mraa_aio_read(pin);
 }
 /***********************
+*******Me 4Button
+************************/
+Me4Button::Me4Button(uint8_t port) {
+    mraa_init();
+	MePort pt = MePort();
+	uint8_t s2 = pt.getPin(port,1);
+	pin = mraa_aio_init(s2-14);
+    if (pin == NULL) {
+        fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", s2);
+        exit (1);
+    }
+}
+
+Me4Button::~Me4Button () {
+    mraa_aio_close(pin);
+}
+uint8_t Me4Button::read(){
+	uint16_t v = mraa_aio_read(pin);
+	return v<100?1:(v<500?2:(v<700?3:(v<800?4:0)));
+}
+/***********************
 *******MeSoundSensor
 ************************/
 MeSoundSensor::MeSoundSensor(uint8_t port){

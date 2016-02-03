@@ -211,6 +211,15 @@ namespace upm {
         private:
 			mraa_aio_context pin;
     };
+	class Me4Button {
+        public:
+            Me4Button(uint8_t port);
+			~Me4Button();
+            uint8_t read();
+			
+        private:
+			mraa_aio_context pin;
+    };
 	class MeSoundSensor {
         public:
             MeSoundSensor(uint8_t port);

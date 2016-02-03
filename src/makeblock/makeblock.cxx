@@ -1059,3 +1059,13 @@ double MeHumiture::getPointFast()
   //double Td = (b * temp) / (a - temp);
   return ((b * temp) / (a - temp));
 }
+MeTftLCD::MeTftLCD(){
+	uart = mraa_uart_init(0);
+	mraa_uart_set_baudrate (uart, 9600);
+}
+MeTftLCD::~MeTftLCD(){
+    mraa_uart_stop(uart);
+}
+void MeTftLCD::send(char *str){
+	mraa_uart_write(uart, str, sizeof(str));
+}

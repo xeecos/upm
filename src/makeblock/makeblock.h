@@ -4,6 +4,7 @@
 #include <math.h>
 #include <mraa/aio.h>
 #include <mraa/gpio.h>
+#include <mraa/uart.h>
 #include <sys/time.h>
 #include "servo.h"
 #define HIGH                   1
@@ -290,4 +291,14 @@ namespace upm {
 			uint8_t humidity;
 			uint8_t temperature;
 	};
+	
+	class MeTftLCD {
+        public:
+            MeTftLCD();
+			~MeTftLCD();
+            void send(char *str);
+			
+        private:
+			mraa_uart_context uart;
+    };
 }

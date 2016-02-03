@@ -34,6 +34,9 @@
 
 using namespace upm;
 
+Servo::Servo(){
+	
+}
 Servo::Servo (int pin) {
     init(pin, MIN_PULSE_WIDTH, MAX_PULSE_WIDTH, DEFAULT_WAIT_DISABLE_PWM);
 }

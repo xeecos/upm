@@ -49,6 +49,8 @@ namespace upm {
  */
 class Servo {
     public:
+		
+        Servo ();
         /**
          * Instantiates a Servo object
          *

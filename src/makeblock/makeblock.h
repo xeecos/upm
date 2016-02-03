@@ -59,12 +59,13 @@ namespace upm {
 			mraa_gpio_context  pin2;
     };
 	
-	class MeServoMotor:public Servo {
+	class MeServoMotor {
         public:
             MeServoMotor(uint8_t port,uint8_t slot);
 			~MeServoMotor ();
             void run(uint8_t angle);
-			
+		private:
+			Servo *svr;
     };
 	
 	class MeStepperMotor {

@@ -67,17 +67,16 @@ void MeDCMotor::run(int16_t pwm){
 /********************
 *******Me Servo Motor
 *********************/
-MeServoMotor::MeServoMotor(uint8_t port,uint8_t slot):Servo(0){
+MeServoMotor::MeServoMotor(uint8_t port,uint8_t slot){
 	MePort pt = MePort();
 	int s = pt.getPin(port,slot);
-	init(s,600,2500,0);
+    svr = new Servo(s);
 	
 }
 MeServoMotor::~MeServoMotor (){
-	haltPwm();
 }
 void MeServoMotor::run(uint8_t angle){
-	setAngle(angle);
+	svr->setAngle(angle);
 }
 	
 /********************

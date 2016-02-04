@@ -1,6 +1,7 @@
 #pragma once
  
 #include <stdio.h>
+#include <string.h>
 #include <math.h>
 #include <mraa/aio.h>
 #include <mraa/gpio.h>

@@ -1067,5 +1067,5 @@ MeTftLCD::~MeTftLCD(){
     mraa_uart_stop(uart);
 }
 void MeTftLCD::send(char *str){
-	mraa_uart_write(uart, str, sizeof(str));
+	mraa_uart_write(uart, str, strlen(str));
 }

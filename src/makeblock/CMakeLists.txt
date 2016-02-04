@@ -1,5 +1,5 @@
 set (libname "makeblock")
 set (libdescription "UPM module for Makeblock")
-set (module_src servo.cxx makeblock.cxx)
-set (module_h servo.h makeblock.h)
+set (module_src servo.cxx makeblock.cxx mpu60x0.cxx)
+set (module_h servo.h makeblock.h mpu60x0.h)
 upm_module_init()

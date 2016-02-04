@@ -6,8 +6,10 @@
 #include <mraa/aio.h>
 #include <mraa/gpio.h>
 #include <mraa/uart.h>
+#include <mraa/i2c.h>
 #include <sys/time.h>
 #include "servo.h"
+#include "mpu60x0.h"
 #define HIGH                   1
 #define LOW                    0
 #define PORT_1 1
@@ -292,7 +294,18 @@ namespace upm {
 			uint8_t humidity;
 			uint8_t temperature;
 	};
-	
+	class MeGyro {
+        public:
+            MeGyro();
+			~MeGyro();
+			void begin();
+            void update();
+            double read(uint8_t axis);
+			
+        private:
+			MPU60X0 mpu6050;
+			float gx,gy,gz;
+    };
 	class MeTftLCD {
         public:
             MeTftLCD();

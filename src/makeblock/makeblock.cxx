@@ -1059,6 +1059,28 @@ double MeHumiture::getPointFast()
   //double Td = (b * temp) / (a - temp);
   return ((b * temp) / (a - temp));
 }
+/***********************
+*******MeGyro
+************************/
+MeGyro::MeGyro(){
+}
+MeGyro::~MeGyro(){
+	
+}
+void MeGyro::begin(){
+	mpu6050.init();
+}
+void MeGyro::update(void)
+{
+	mpu6050.update();
+	mpu6050.getGyroscope(&gx,&gy,&gz);
+}
+double MeGyro::read(uint8_t axis){
+	return axis==0?gx:(axis==1?gy:gz);
+}
+/***********************
+*******MeTftLCD
+************************/
 MeTftLCD::MeTftLCD(){
 	uart = mraa_uart_init(0);
 	mraa_uart_set_baudrate (uart, 9600);

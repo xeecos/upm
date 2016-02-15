@@ -76,7 +76,17 @@ please refer to the Intel Developer Zone IDE page.
 ### Building UPM
 
 See building documentation [here](docs/building.md).
-
+```
+cd ~/upm/build/
+cmake ..
+make clean
+make makeblock
+cd src/makeblock
+make install
+cd ~/makeblock
+NODE_PATH=$NODE_PATH:/usr/local/lib/node_modules/
+node test.js
+```
 ### Making your own UPM module
 
 Porting [link](docs/porting.md) has more information on making new UPM modules.

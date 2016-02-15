@@ -77,7 +77,13 @@ please refer to the Intel Developer Zone IDE page.
 
 See building documentation [here](docs/building.md).
 ```
-cd ~/upm/build/
+opkg install git
+opkg install mraa
+cd ~
+git clone https://github.com/xeecos/upm
+cd ~/upm
+mkdir build
+cd build
 cmake ..
 make clean
 make makeblock

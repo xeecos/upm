@@ -42,6 +42,7 @@ MeDCMotor::MeDCMotor(uint8_t port){
         fprintf (stderr, "Are you sure that pin%d you requested is valid on your platform?", s2);
         exit (1);
     }
+	mraa_pwm_enable(pin1,1);
 	mraa_gpio_use_mmaped(pin2, 1);
 	mraa_gpio_dir(pin2, MRAA_GPIO_OUT);
 }
